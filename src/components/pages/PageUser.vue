@@ -85,6 +85,29 @@
           {{ user.location }} <b-link  v-if="user.website" target="_blank" :href="user.website"> &nbsp;&middot;&nbsp; <i class="bi bi-link-45deg"></i> 
           {{user.website}}</b-link>
         </div>
+        <div class="d-flex flex-row bio-audio-con">
+          <div style="flex: 1">
+            <div class="d-flex ">
+              <b-link @click.prevent="startPause">
+                <i v-if="isAudioLoaded&&audioProps.isPlaying" class="bi-pause-fill" style="font-size: 2rem" />
+                <i v-else-if="isAudioLoaded&&!audioProps.isPlaying" class="bi-play-fill" style="font-size: 2rem" />
+              </b-link>
+              <div style="flex: 1">
+                <vue-wave-surfer :src="audioFile" :options="audioOptions" ref="surf"
+                  @hook:mounted="audioComponentMounted">
+                </vue-wave-surfer>
+              </div>
+            </div>
+            <div class="pl-5 d-flex justify-content-between small" style="color: #959697">
+              <p>{{secondToMin(audioProps.currentTime)}}</p>
+              <p>{{secondToMin(audioProps.duration)}}</p>
+            </div>
+          </div>
+          <div class="rounded-circle text-right position-relative" style="width: 70px; top: -10px">
+            <b-avatar :src="user.avatar" :text="user.initials" :to="user.url" size="50px" />
+            <i class="bi bi-mic-fill mic-icon"></i>
+          </div>
+        </div>
         <div style="display:flex; overflow: scroll;">
         <b-link v-if="user.instagram" :href="user.instagram" target="_blank" style="margin-right:7px;">
             <svg width="90" height="50" viewBox="0 0 179 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -288,17 +311,21 @@
 .profile {
   .page-header {
     top: -56px;
+    margin-bottom: -56px;
     transition: top 0.2s;
     color: white;
+
     .btn,
     a:not(.dropdown-item) {
       padding: 0;
       color: white;
     }
+
     &.scrolled {
       top: 0;
       margin-bottom: 0;
       color: black;
+
       .btn,
       a {
         color: black;
@@ -311,6 +338,7 @@
 }
   .cover {
     height: 180px;
+
     &:after {
       position: absolute;
       left: 0;
@@ -323,6 +351,7 @@
       content: "";
       z-index: 3;
     }
+
     img {
       -o-object-fit: cover;
       object-fit: cover;
@@ -333,20 +362,68 @@
       height: 100%;
     }
   }
+
   .avatar {
     margin-top: -50px;
     z-index: 3;
   }
 }
+
+.bio-audio-con {
+  align-items: center;
+  border-width: 1px;
+  padding: 10px;
+  background: white;
+  box-shadow: 0px 5px 14px 1px #f0f0f0;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom-left-radius: 10px;
+  position: relative;
+
+  /* &:before {
+    content: ' ';
+    position: absolute;
+    width: 0;
+    height: 0;
+    left: -12px;
+    right: auto;
+    top: 0px;
+    bottom: auto;
+    border: 15px solid;
+    border-color: #fff transparent transparent transparent;
+  } */
+}
+
+.mic-icon {
+  font-size: 1.3rem;
+  color: rgb(0, 175, 240);
+  position: absolute;
+  top: 24px;
+  right: 33px;
+  -webkit-text-stroke-width: 0.5px;
+  -webkit-text-stroke-color: white;
+}
+
+wave::after {
+  z-index: 11;
+  content: ' \25CF';
+  font-size: 29px;
+  color: #f01200;
+  right: -2px;
+  top: 0px;
+  position: absolute;
+}
 </style>
 <style scoped lang="scss">
 @import "~@/assets/scss/_variables.scss";
+
 .nav-tabs .nav-link {
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;
   color: $secondary;
 }
+
 .nav-tabs .nav-link.active,
 .nav-tabs .nav-item.show .nav-link {
   color: $primary;
@@ -354,6 +431,8 @@
 }
 </style>
 <script>
+import Cursor from 'wavesurfer.js/dist/plugin/wavesurfer.cursor';
+
 import Post from "../models/Post";
 import User from "../models/User";
 import UiPosts from "../ui/UiPosts.vue";
@@ -374,6 +453,27 @@ export default {
       isLoading: false,
       rnd: Math.random(),
       postsType: Post.TYPE_ACTIVE,
+      audioOptions: {
+        plugins: [
+          Cursor.create()
+        ],
+
+        waveColor: '#C6C7C8',
+        progressColor: "#00AFF0",
+        barWidth: 4,
+        height: 50,
+        responsive: true,
+        hideScrollbar: true,
+        barRadius: 4
+      },
+      audioFile: "img/sample.mp3",
+      audioProps: {
+        duration: 0,
+        currentTime: 0,
+        isPlaying: false
+      },
+      isAudioLoaded: false,
+      getCurrentTimeInterval: 0
     };
   },
   computed: {
@@ -394,6 +494,14 @@ export default {
         expired: Post.TYPE_EXPIRED,
       };
     },
+    currentDurationTime: function () {
+      if (this.isAudioLoaded) {
+        return this.$refs.surf.waveSurfer.getCurrentTime();
+      }
+      else {
+        return 0
+      }
+    }
   },
   watch: {
     
@@ -403,6 +511,12 @@ export default {
         this.loadUser();
       }
     },
+    currentDurationTime: {
+      handler(val) {
+        console.log(val)
+      },
+      deep: true
+    }
   },
   mounted() {
     this.loadUser();
@@ -563,6 +677,48 @@ export default {
       }
       
     },
+    
+    startPause() {
+      if (this.$refs.surf.waveSurfer) {
+        this.$refs.surf.waveSurfer.playPause()
+        this.audioProps.isPlaying = this.$refs.surf.waveSurfer.isPlaying()
+        if (this.audioProps.isPlaying) {
+          this.getCurrentTimeInterval = setInterval(() => {
+            this.audioProps.currentTime = this.$refs.surf.waveSurfer.getCurrentTime()
+            console.log(this.audioProps.currentTime)
+          }, 1000);
+        }
+        else {
+          clearInterval(this.getCurrentTimeInterval)
+          this.getCurrentTimeInterval = 0
+        }
+      }
+    },
+    audioComponentMounted() {
+      this.isAudioLoaded = true;
+      this.getAudioProps();
+      setTimeout(() => {
+        this.audioProps.duration = this.$refs.surf.waveSurfer.getDuration()
+        this.$refs.surf.waveSurfer.on('finish', () => {
+          this.$refs.surf.waveSurfer.stop()
+          clearInterval(this.getCurrentTimeInterval)
+          this.getCurrentTimeInterval = 0
+          this.getAudioProps();
+        })
+      }, 1000);
+    },
+    secondToMin(second) {
+      let parsedSec = Math.round(second)
+      var minutes = Math.floor(parsedSec / 60);
+      var seconds = parsedSec - minutes * 60;
+      return `${minutes}:${seconds}`
+    },
+
+    getAudioProps() {
+      this.audioProps.duration = this.$refs.surf.waveSurfer.getDuration()
+      this.audioProps.currentTime = this.$refs.surf.waveSurfer.getCurrentTime()
+      this.audioProps.isPlaying = this.$refs.surf.waveSurfer.isPlaying()
+    }
   },
 };
 </script>

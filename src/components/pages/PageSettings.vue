@@ -72,6 +72,12 @@
             :errors="errors"
             :label="$t('general.bio')"
           />
+          <ui-form-bio-audio-input
+            name="audio_bio"
+            v-model="user.audio_bio"
+            :errors="errors"
+            :label="'Audio Bio'"
+          />
           <ui-form-input
             type="text"
             name="location"
@@ -195,6 +201,7 @@
 import User from "../models/User";
 import UiFormInput from "../ui/UiFormInput.vue";
 import UiFormTextarea from "../ui/UiFormTextarea.vue";
+import UiFormBioAudioInput from "../ui/UiFormBioAudioInput.vue";
 export default {
   data: function () {
     return {
@@ -206,6 +213,7 @@ export default {
   components: {
     UiFormInput,
     UiFormTextarea,
+    UiFormBioAudioInput
   },
   mounted() {
     this.loadUser();
