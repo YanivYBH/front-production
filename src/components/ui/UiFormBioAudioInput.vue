@@ -5,27 +5,44 @@
         :placeholder="placeholder" :disabled="disabled" />
 
     </b-input-group> -->
-    <div class="d-flex ">
+    <!-- <div class="d-flex ">
       <b-form-checkbox id="checkbox-1" v-model="recMode" name="checkbox-1" value="press" unchecked-value="hold">
         <div>Recording mode: <strong>{{ recMode.toUpperCase() }}</strong></div>
       </b-form-checkbox>
-
-      
-    </div>
+    </div> -->
     <div class="d-flex py-3 align-items-center" style="">
-
-      <VueRecordAudio :mode="recMode" @stream="onStream" @result="onResult" />
-      <div class="px-3">
-
+      <VueRecordAudio v-if="!isStreamed" :mode="recMode" @stream="onStream" @result="onResult" />
+      <div v-if="isStreamed || isSaved" class="px-3">
         <b-link @click.prevent="startPause">
           <i v-if="isAudioLoaded&&audioProps.isPlaying" class="bi-pause-fill" style="font-size: 3rem" />
           <i v-else-if="isAudioLoaded&&!audioProps.isPlaying" class="bi-play-fill" style="font-size: 3rem" />
         </b-link>
       </div>
-      <div class="" style="flex: 1;background: white; box-shadow: 0px 5px 14px 1px #f0f0f0;">
+      <div v-if="isStreamed || isSaved" class=""
+        style="flex: 1;background: white; box-shadow: 0px 5px 14px 1px #f0f0f0;">
         <vue-wave-surfer :key="key" :src="audioFile" :options="audioOptions" ref="surf"
           @hook:mounted="audioComponentMounted">
         </vue-wave-surfer>
+      </div>
+    </div>
+    <div v-on:click="onDeleteClicked()" v-if="isSaved" style="font-size: 33px;
+      height: 50px;
+      width: 50px;
+      text-align: center;
+      border: 1px solid;
+      border-radius: 50%;
+      margin-left: 6px;
+      cursor: pointer;" class="bi bi-trash"></div>
+    <div v-if="isStreamed" class="d-flex py-3 justify-content-center" style="width: 100%;">
+      <div v-on:click="onSaveClicked()" class="flex-column d-flex py-3 align-items-center"
+        style="cursor: pointer; margin-right: 10px;">
+        <div style="font-size: 40px; height: 50px;" class="bi bi-check-circle text-success"></div>
+        <div style="font-weight: bold;"> Save </div>
+      </div>
+      <div v-on:click="onDeleteClicked()" class="flex-column d-flex py-3 align-items-center"
+        style="cursor: pointer; margin-left: 10px;">
+        <div style="font-size: 40px; height: 50px;" class="bi bi-x-circle text-danger"></div>
+        <div style="font-weight: bold;"> Delete </div>
       </div>
     </div>
 
@@ -43,19 +60,19 @@
 
 .vue-audio-recorder:hover {
   background-color: #00AFF0 !important;
-
 }
 
 .vue-audio-recorder.active {
   background-color: #ef5350 !important;
-
 }
 </style>
 <script>
+import axios from "axios";
 import Cursor from 'wavesurfer.js/dist/plugin/wavesurfer.cursor';
 export default {
   props: [
     "label",
+    "changeAudio",
     "name",
     "value",
     "errors",
@@ -83,7 +100,8 @@ export default {
         hideScrollbar: true,
         barRadius: 4
       },
-      audioFile: "img/sample.mp3",
+      audioFile: `${process.env.VUE_APP_API_URL + this.$props.value}`,
+      audioGenFile: this.$props.value,
       audioProps: {
         duration: 0,
         currentTime: 0,
@@ -91,8 +109,9 @@ export default {
       },
       isAudioLoaded: false,
       getCurrentTimeInterval: 0,
-      key: 0
-
+      key: 0,
+      isStreamed: false,
+      isSaved: false,
     }
   },
   computed: {
@@ -106,20 +125,46 @@ export default {
     },
   },
   mounted() {
-
+    const audio_url = this.$props.value;
+    if (audio_url!=="" && audio_url!==null) {
+      this.isSaved = true;
+      this.audioFile = process.env.VUE_APP_API_URL + audio_url;
+    }
   },
   methods: {
     onResult(data) {
-      console.log('The blob data:', data);
-      console.log('Downloadable audio', window.URL.createObjectURL(data));
-      this.audioFile = window.URL.createObjectURL(data)
+      this.isStreamed = true;
+      this.audioFile = window.URL.createObjectURL(data);
+      this.audioGenFile = new File([data], "audio.mp3", { type: 'mp3' });
       this.key = this.key + 1
     },
-    onStream(data) {
-      console.log('STREAM', data);
-
+    onStream() {
+      // console.log('STREAM', data);
     },
 
+    onDeleteClicked() {
+      this.isStreamed = false;
+      this.isSaved = false;
+      this.audioFile = "";
+    },
+    onSaveClicked() {
+      const formData = new FormData();
+      formData.append('file', this.audioGenFile);
+      const config = {
+        headers: {
+          'content-type': 'multipart/form-data',
+        }
+      }
+      axios.post(`${process.env.VUE_APP_API_URL}/v1/audio/save`,
+        formData, config
+      ).then((data) => {
+        this.audioFile = process.env.VUE_APP_API_URL + data.audio;
+        this.$emit("input", data.audio);
+        this.changeAudio(data.audio);
+      });
+      this.isStreamed = false;
+      this.isSaved = true;
+    },
     startPause() {
       if (this.$refs.surf.waveSurfer) {
         this.$refs.surf.waveSurfer.playPause()
@@ -127,7 +172,6 @@ export default {
         if (this.audioProps.isPlaying) {
           this.getCurrentTimeInterval = setInterval(() => {
             this.audioProps.currentTime = this.$refs.surf.waveSurfer.getCurrentTime()
-            console.log(this.audioProps.currentTime)
           }, 1000);
         }
         else {
@@ -153,7 +197,7 @@ export default {
       let parsedSec = Math.round(second)
       var minutes = Math.floor(parsedSec / 60);
       var seconds = parsedSec - minutes * 60;
-      return `${minutes}:${seconds}`
+      return `${ minutes }:${ seconds } `
     },
 
     getAudioProps() {
