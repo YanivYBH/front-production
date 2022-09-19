@@ -75,7 +75,7 @@
           <ui-form-bio-audio-input
             name="audio_bio"
             v-model="user.audio_bio"
-            :changeAudio="changeAudio"
+            @changeAudio="changeAudio"
             :errors="errors"
             :label="'Bio Voice'"
           />
@@ -225,19 +225,16 @@ export default {
         "/auth/me",
         (data) => {
           this.user = new User(data);
-          console.log(data);
         },
         (errors) => {
           console.log(errors);
         }
       );
     },
-    changeAudio(audio_bio) {
-      console.log(audio_bio);
-      this.user.audio_bio = audio_bio
+    changeAudio(value) {
+      this.user.audio_bio = value;
     },
     saveSettings() {
-      console.log(this.user.audio_bio);
       this.errors = {};
       this.$post(
         "/profile",

@@ -72,7 +72,6 @@ import Cursor from 'wavesurfer.js/dist/plugin/wavesurfer.cursor';
 export default {
   props: [
     "label",
-    "changeAudio",
     "name",
     "value",
     "errors",
@@ -157,10 +156,9 @@ export default {
       }
       axios.post(`${process.env.VUE_APP_API_URL}/v1/audio/save`,
         formData, config
-      ).then((data) => {
+      ).then(({data}) => {
         this.audioFile = process.env.VUE_APP_API_URL + data.audio;
-        this.$emit("input", data.audio);
-        this.changeAudio(data.audio);
+        this.$emit("changeAudio", data.audio);
       });
       this.isStreamed = false;
       this.isSaved = true;
