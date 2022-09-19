@@ -125,6 +125,7 @@ export default {
   },
   mounted() {
     const audio_url = this.$props.value;
+    console.log(this.$props.value);
     if (audio_url!=="" && audio_url!==null) {
       this.isSaved = true;
       this.audioFile = process.env.VUE_APP_API_URL + audio_url;
