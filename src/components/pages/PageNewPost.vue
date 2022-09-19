@@ -148,9 +148,11 @@
       </b-row>
       <b-row class="border-bottom py-2">
         <div class="d-flex align-items-center">
-          <b-link @click="mediaDropzoneClick" class="mx-2 ml-3">
-            <i class="bi-image" />
-          </b-link>
+          <input id="uploader" type="hidden" role="uploadcare-uploader" name="my_file" 
+            data-public-key="2253d21f00f574a6a708"
+            data-clearable="true"
+            data-multiple="true"
+          />
           <b-link @click="pollAdd" class="mx-2">
             <i class="bi-bar-chart" />
           </b-link>
@@ -191,6 +193,7 @@ dayjs.extend(localizedFormat);
 import UiPostOptionInfo from "../ui/UiPostOptionInfo";
 import UiMediaUploader from "../ui/UiMediaUploader.vue";
 import Media from "../models/Media";
+import uploadcare from 'uploadcare-widget'
 
 export default {
   components: {
@@ -222,6 +225,25 @@ export default {
     },
   },
   mounted() {
+    const widget = uploadcare.Widget("#uploader", { publicKey: 'demopublickey' });
+    widget.onChange(async (group) => {
+      const files = await Promise.all(group.files());
+      const urls = files.map(file => file.cdnUrl.split('/')[3]+"."+file.name.split(".")[1]);
+      urls.forEach(url => {
+        this.$post(
+          "/media",
+          url,
+          (data) => {
+            console.log(data);
+            this.media.push(data);
+          },
+          (err) => {
+            console.log(err);
+          },
+        );
+      });
+      
+    });
     if (this.postId) {
       this.loadPost();
     }
