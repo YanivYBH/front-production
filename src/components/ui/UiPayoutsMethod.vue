@@ -69,7 +69,6 @@
             id="country"
             v-model="verification.country"
             required
-            disabled
             :options="countries"
             :state="errors['country'] ? false : null"
             aria-describedby="country-errors"
